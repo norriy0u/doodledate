@@ -25,8 +25,6 @@ let audioEnabled = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('dateCounter').textContent = dateCount;
-  const savedKey = localStorage.getItem('claude_api_key_vision');
-  if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
   
   // Fill canvases with white initially
   ctxYou.fillStyle = '#ffffff'; ctxYou.fillRect(0,0,400,500);
@@ -34,18 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   saveState();
   loadGallery();
-});
-
-function initApp() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (!key) { alert('API key required for the AI Vision analysis.'); return; }
-  apiKey = key;
-  localStorage.setItem('claude_api_key_vision', key);
-  
-  UI.apiScreen.classList.remove('active');
-  UI.studioScreen.classList.add('active');
   initAudio();
-}
+});
 
 /* ── AUDIO ENGINE ── */
 function toggleAudio() {
@@ -219,7 +207,7 @@ function undo() {
   }
 }
 
-/* ── CLAUDE VISION API INTEGRATION ── */
+/* ── PROCEDURAL AI INTEGRATION (OFFLINE) ── */
 async function letAiDraw() {
   // Lock UI
   UI.btnLetAiDraw.disabled = true;
@@ -229,79 +217,48 @@ async function letAiDraw() {
   
   const hbInterval = setInterval(playHeartbeat, 1000);
   
-  // Get Canvas Data (JPEG to save size)
-  const base64Image = UI.canvasYou.toDataURL("image/jpeg", 0.7).split(',')[1];
+  // Simulate API processing time (2-3 seconds)
+  await new Promise(resolve => setTimeout(resolve, 2500));
   
-  const prompt = `Analyze this drawing done by a user on the left half of a collaborative canvas.
-Describe what they drew and the general mood. Then, conceptually complete the picture for the right half of the canvas. 
-Describe what shapes and elements I should draw procedurally using HTML5 Canvas to complement their drawing.
-Respond ONLY with a raw JSON object (no markdown, no quotes outside JSON). Use this exact structure:
-{
-  "mood": "Playful / Melancholy / Abstract / etc",
-  "style": "geometric" | "abstract" | "curves" | "scattered",
-  "palette": ["#hex1", "#hex2", "#hex3"],
-  "title": "A creative title combining both halves",
-  "compatibility": 85,
-  "elements": [
-    {"type": "circle" | "curve" | "star", "density": 5, "size": "small" | "large"}
-  ]
-}`;
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 400,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Image } },
-              { type: "text", text: prompt }
-            ]
-          }
-        ]
-      })
-    });
-    
-    clearInterval(hbInterval);
-    if (!res.ok) throw new Error('API Error');
-    const data = await res.json();
-    
-    let respText = data.content[0].text.trim();
-    if (respText.startsWith('```json')) respText = respText.substring(7);
-    if (respText.endsWith('```')) respText = respText.substring(0, respText.length - 3);
-    
-    const parsed = JSON.parse(respText);
-    
-    UI.aiProcessing.style.display = 'none';
-    UI.btnLetAiDraw.textContent = "AI IS DRAWING...";
-    
-    // Draw procedural art
-    await animateAiDrawing(parsed);
-    
-    // Show Results
-    UI.btnLetAiDraw.style.display = 'none';
-    triggerFireworks();
-    showReceipt(parsed);
-    saveCombinedArtwork();
-
-  } catch (e) {
-    clearInterval(hbInterval);
-    console.error(e);
-    alert('Failed to connect to Claude. Check API key.');
-    UI.aiProcessing.style.display = 'none';
-    UI.aiWaiting.style.display = 'flex';
-    UI.btnLetAiDraw.disabled = false;
-    UI.btnLetAiDraw.textContent = "LET AI DRAW ❤️";
-  }
+  clearInterval(hbInterval);
+  
+  // Procedurally generate a response based on a predefined set
+  const styles = ['geometric', 'abstract', 'curves', 'scattered'];
+  const moods = ['Playful', 'Melancholy', 'Energetic', 'Mysterious', 'Joyful'];
+  const baseColors = [
+    ['#ec4899', '#3b82f6', '#f59e0b'],
+    ['#10b981', '#8b5cf6', '#1e293b'],
+    ['#ef4444', '#f59e0b', '#3b82f6'],
+    ['#8b5cf6', '#ec4899', '#ffffff']
+  ];
+  
+  const selectedStyle = styles[Math.floor(Math.random() * styles.length)];
+  const selectedColors = baseColors[Math.floor(Math.random() * baseColors.length)];
+  
+  const parsed = {
+    mood: moods[Math.floor(Math.random() * moods.length)],
+    style: selectedStyle,
+    palette: selectedColors,
+    title: "Doodle Synthesis #" + Math.floor(Math.random() * 1000),
+    compatibility: Math.floor(Math.random() * 20 + 80),
+    elements: [
+      { type: "circle", density: Math.floor(Math.random() * 5 + 3), size: "large" },
+      { type: "curve", density: Math.floor(Math.random() * 10 + 5), size: "small" },
+      { type: "star", density: Math.floor(Math.random() * 3 + 1), size: "small" }
+    ]
+  };
+  
+  UI.aiProcessing.style.display = 'none';
+  UI.btnLetAiDraw.textContent = "AI IS DRAWING...";
+  
+  // Draw procedural art
+  await animateAiDrawing(parsed);
+  
+  // Show Results
+  UI.btnLetAiDraw.style.display = 'none';
+  triggerFireworks();
+  showReceipt(parsed);
+  saveCombinedArtwork();
 }
 
 /* ── PROCEDURAL AI DRAWING ── */
